@@ -322,9 +322,9 @@ int EuRoCDataset::LoadMetaData()
             ground_truth.emplace_back(time, SE3(q, data));
         }
 
-        YAML::Node config = YAML::LoadFile(params.dir + "/state_groundtruth_estimate0/sensor.yaml");
-        Mat4 m            = readYamlMatrix<Mat4>(config["T_BS"]["data"]);
-        extrinsics_gt     = SE3::fitToSE3(m);
+        // YAML::Node config = YAML::LoadFile(params.dir + "/state_groundtruth_estimate0/sensor.yaml");
+        // Mat4 m            = readYamlMatrix<Mat4>(config["T_BS"]["data"]);
+        // extrinsics_gt     = SE3::fitToSE3(m);
     }
 
 
@@ -580,6 +580,21 @@ void EuRoCDataset::FindSequence()
             }
         }
 
+        if (dir.find("sky") < dir.size()) {
+            if (dir.find('6')<dir.size()) {
+                sequence = sky6;
+                found++;
+            }
+            else if (dir.find('7')<dir.size()) {
+                sequence = sky7;
+                found++;
+            }
+            else {
+                sequence = sky;
+                found++;
+            }
+        }
+        std::cout<<"found: "<<found<<std::endl;
         SAIGA_ASSERT(found == 1);
         SAIGA_ASSERT(sequence != UNKNOWN);
 
@@ -606,7 +621,11 @@ void EuRoCDataset::FindSequence()
                                                // V2
                                                {-0.217, true},
                                                {-0.209, true},
-                                               {-0.200, true}};
+                                               {-0.200, true},
+                                               {0.006, false},
+                                               {0.006, false},
+                                               {0.006, false}
+    };
 
 
 

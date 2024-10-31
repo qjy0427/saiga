@@ -124,6 +124,8 @@ void ORBExtractor::DetectKeypoints()
             {
                 const float iniX = minBorderX + j * wCell;
                 float maxX       = iniX + wCell + 6;
+
+                if (iniX < 70) continue;  // Mask out landing gear
                 if (iniX >= maxBorderX - 6) continue;
                 if (maxX > maxBorderX) maxX = maxBorderX;
 
