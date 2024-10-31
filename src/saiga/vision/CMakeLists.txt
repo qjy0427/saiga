@@ -55,8 +55,19 @@ else ()
     add_library(${MODULE_NAME} STATIC ${SAIGA_ALL_FILES})
 endif()
 
+message(STATUS "Processor: ${CMAKE_SYSTEM_PROCESSOR}")
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
+    message(STATUS "Building for x86_64")
+    set(NX_Driver_LIBS "")
+else ()
+    message(STATUS "Building for ARM")
+    file(GLOB NX_Driver_LIBS LIST_DIRECTORIES false  ${PROJECT_SOURCE_DIR}/ua-sdk/lib/*.so)
+    message(STATUS "NX_Driver_LIBS: ${NX_Driver_LIBS}")
+    add_definitions(-DARM)
+endif ()
+
 target_link_libraries(${MODULE_NAME} ${VISION_TARGETS} ${VISION_LIBS})
-target_link_libraries(${MODULE_NAME} saiga_core)
+target_link_libraries(${MODULE_NAME} saiga_core ${NX_Driver_LIBS})
 target_compile_options(${MODULE_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${SAIGA_PRIVATE_CXX_FLAGS}>")
 
 target_include_directories(

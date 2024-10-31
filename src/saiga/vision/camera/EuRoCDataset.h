@@ -73,6 +73,8 @@ class SAIGA_VISION_API EuRoCDataset : public DatasetCameraBase
     Sequence sequence;
     // Tmp loading data
     std::vector<std::pair<double, std::string>> cam0_images, cam1_images;
+
+    friend class SharedMemory;
 };
 
 }  // namespace Saiga

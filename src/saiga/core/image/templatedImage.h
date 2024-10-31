@@ -9,6 +9,8 @@
 
 #include <iostream>
 
+#include "../ua-sdk/include/vision_service_direct_funcs.h"
+
 namespace Saiga
 {
 template <typename T>
@@ -82,6 +84,18 @@ class TemplatedImage : public Image
         }
         SAIGA_ASSERT(type == TType::type);
         return r;
+    }
+
+    bool load(const ImageFrame& frame)
+    {
+        create(frame.rows, frame.cols);
+        makeZero();
+        for (int row = 0; row < frame.rows; ++row)
+        {
+            char* row_ptr = frame.data + (row * frame.step);
+            memcpy(rowPtr(row), row_ptr, frame.cols * sizeof(T));
+        }
+        return true;
     }
 };
 
