@@ -368,9 +368,16 @@ std::vector<Imu::Data> SharedMemory::GetImuSample(const double curr_time)
 #ifdef ARM
     int imu_num = 0;
     AttFrame imu_datas[1024];
-    int ret = vision_get_history_device_frames(DeviceStream::DEVICE_ATT,
-        last_imu_time * 1e9, (curr_time + 0.01) * 1e9, imu_datas, imu_num);
-
+    while (true) {
+        int ret = vision_get_history_device_frames(DeviceStream::DEVICE_ATT,
+            last_imu_time * 1e9, (curr_time + 0.01) * 1e9, imu_datas, imu_num);
+        if (ret == 0)
+        {
+            break;
+        }
+        std::cout << "Failed to load IMU from shared memory, retrying!\n";
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
     std::vector<Imu::Data> vec_imu_data;
     for (int i = 0; i < imu_num; ++i)
     {
@@ -430,6 +437,7 @@ bool SharedMemory::getImageSync(FrameData& data)
 
     last_imu_data = imu_data;
     last_time     = data.timeStamp;
+    std::cout << "Successfully loaded imgs and IMUs.\n";
     return true;
 #else
     std::cerr << non_arm_error_msg;

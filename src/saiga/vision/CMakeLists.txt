@@ -66,8 +66,8 @@ else ()
     add_definitions(-DARM)
 endif ()
 
-target_link_libraries(${MODULE_NAME} ${VISION_TARGETS} ${VISION_LIBS})
-target_link_libraries(${MODULE_NAME} saiga_core ${NX_Driver_LIBS})
+target_link_libraries(${MODULE_NAME} ${VISION_TARGETS} ${VISION_LIBS} ${NX_Driver_LIBS})
+target_link_libraries(${MODULE_NAME} saiga_core)
 target_compile_options(${MODULE_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${SAIGA_PRIVATE_CXX_FLAGS}>")
 
 target_include_directories(
