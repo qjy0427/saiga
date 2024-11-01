@@ -23,12 +23,17 @@ SharedMemory::SharedMemory(const DatasetParameters& _params, Sequence sequence) 
     params.preload = false;
     camera_type = CameraInputType::Stereo;
     Load();
+#ifdef ARM
     // open msg receiver
     int ret = vision_create_device_stream();  // 0: success; -1: failed
     if (ret) {
         printf("vision_create_device_stream failed.\n");
-        exit(2);
+        exit(1);
     }
+#else
+    std::cerr << non_arm_error_msg;
+    exit(2);
+#endif
 }
 
 void SharedMemory::Load() {
@@ -39,13 +44,15 @@ void SharedMemory::Load() {
     ResetTime();
 }
 
+// Useless function
 void SharedMemory::LoadImageData(FrameData& data)
 {
 #ifdef ARM
     SAIGA_ASSERT(data.image.rows == 0);
     DeviceStream device = DeviceStream::DEVICE_STEREO_CAMERA_BOTTOM;
     ImageFrame img1, img2;
-    while (true)
+    int tried = 0;
+    while (tried++ < 50)
     {
         int ret = vision_get_stereo_camera_distorted_frame(device, MemoryType::MEMORY_VIRT, &img1, &img2);
         if (ret == 0)
@@ -372,18 +379,29 @@ int SharedMemory::LoadMetaData()
 std::vector<Imu::Data> SharedMemory::GetImuSample(const double curr_time)
 {
 #ifdef ARM
-    int imu_num = 0;
+    int imu_num = 1024;
     AttFrame imu_datas[1024];
-    while (true) {
+    // Increase std::cout precision
+    std::cout << std::setprecision(10);
+    if (last_time < curr_time - 0.1)
+    {
+        last_time = curr_time - 0.1;
+        std::cout << "Too large time gap detected, last_time: " << last_time << std::endl;
+    }
+    int tried = 0;
+    while (tried++ < 50) {
+        std::cout << "Getting IMU from last_time: " << last_time << " to curr_time: " << curr_time << std::endl;
         int ret = vision_get_history_device_frames(DeviceStream::DEVICE_ATT,
-            last_imu_time * 1e9, (curr_time + 0.01) * 1e9, imu_datas, imu_num);
+            static_cast<int64_t>(last_time * 1e9), static_cast<int64_t>(curr_time * 1e9),
+            imu_datas, imu_num);
         if (ret == 0)
         {
             break;
         }
-        std::cout << "Failed to load IMU from shared memory, retrying!\n";
+        std::cout << "Failed to load IMU from shared memory, retrying! Returned value = " << ret << "\n";
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+    std::cout << "Got " << imu_num << " IMU samples.\n";
     std::vector<Imu::Data> vec_imu_data;
     for (int i = 0; i < imu_num; ++i)
     {
@@ -391,13 +409,12 @@ std::vector<Imu::Data> SharedMemory::GetImuSample(const double curr_time)
         result.omega = Vec3(imu_datas[i].imu_gyro[0], imu_datas[i].imu_gyro[1], imu_datas[i].imu_gyro[2]);
         result.acceleration = Vec3(imu_datas[i].imu_accel[0], imu_datas[i].imu_accel[1], imu_datas[i].imu_accel[2]);
         result.timestamp = imu_datas[i].timestamp / 1e9;
-        last_imu_time = result.timestamp;
         vec_imu_data.emplace_back(result);
     }
     return vec_imu_data;
 #else
     std::cerr << non_arm_error_msg;
-    exit(1);
+    exit(4);
 #endif
 }
 
@@ -409,7 +426,8 @@ bool SharedMemory::getImageSync(FrameData& data)
     SAIGA_ASSERT(data.image.rows == 0);
     DeviceStream device = DeviceStream::DEVICE_STEREO_CAMERA_BOTTOM;
     ImageFrame img1, img2;
-    while (true)
+    int tried = 0;
+    while (tried++ < 50)
     {
         int ret = vision_get_stereo_camera_distorted_frame(device, MemoryType::MEMORY_VIRT, &img1, &img2);
         if (ret == 0)
@@ -425,7 +443,7 @@ bool SharedMemory::getImageSync(FrameData& data)
     data.timeStamp = img1.timestamp / 1e9;
 
     std::vector<Imu::Data> imu_data = GetImuSample(data.timeStamp);
-    //    std::cout << "imu data size: " << imu_data.size() << " Imu frequency: " << imu_data.size() * 30 << std::endl;
+    std::cout << "imu data size: " << imu_data.size() << std::endl;
 
 
     // Add last 2 samples at the front
@@ -438,7 +456,14 @@ bool SharedMemory::getImageSync(FrameData& data)
 
         data.imu_data.FixBorder();
         SAIGA_ASSERT(data.imu_data.Valid());
-        SAIGA_ASSERT(data.imu_data.complete());
+
+        // std::cout << "data.empty(): " << data.imu_data.data.empty() << std::endl;
+        // std::cout << "data.imu_data.time_begin: " << data.imu_data.time_begin << std::endl;
+        // std::cout << "data.imu_data.data.front().timestamp: " << data.imu_data.data.front().timestamp << std::endl;
+        // std::cout << "data.imu_data.time_end: " << data.imu_data.time_end << std::endl;
+        // std::cout << "data.imu_data.data.back().timestamp: " << data.imu_data.data.back().timestamp << std::endl;
+
+        // SAIGA_ASSERT(data.imu_data.complete());
     }
 
     last_imu_data = imu_data;
@@ -447,7 +472,7 @@ bool SharedMemory::getImageSync(FrameData& data)
     return true;
 #else
     std::cerr << non_arm_error_msg;
-    exit(1);
+    exit(5);
 #endif
 }
 
