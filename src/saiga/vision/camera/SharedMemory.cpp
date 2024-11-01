@@ -18,7 +18,7 @@ namespace Saiga
 
 const std::string non_arm_error_msg = "This build is not for ARM, please use the ARM build to run this code.\n";
 
-SharedMemory::SharedMemory(const DatasetParameters& _params, Sequence sequence) : EuRoCDataset(_params, sequence)
+SharedMemory::SharedMemory(const DatasetParameters& _params, Sequence sequence) : EuRoCDataset(_params, sequence, false)
 {
     params.preload = false;
     camera_type = CameraInputType::Stereo;

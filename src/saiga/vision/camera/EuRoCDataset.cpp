@@ -71,11 +71,14 @@ struct Associations
 };
 
 
-EuRoCDataset::EuRoCDataset(const DatasetParameters& _params, Sequence sequence)
+EuRoCDataset::EuRoCDataset(const DatasetParameters& _params, Sequence sequence, bool should_load)
     : DatasetCameraBase(_params), sequence(sequence)
 {
     camera_type = CameraInputType::Stereo;
-    Load();
+    if (should_load)
+    {
+        Load();
+    }
 }
 
 void EuRoCDataset::LoadImageData(FrameData& data)
