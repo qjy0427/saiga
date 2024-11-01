@@ -23,6 +23,12 @@ SharedMemory::SharedMemory(const DatasetParameters& _params, Sequence sequence) 
     params.preload = false;
     camera_type = CameraInputType::Stereo;
     Load();
+    // open msg receiver
+    int ret = vision_create_device_stream();  // 0: success; -1: failed
+    if (ret) {
+        printf("vision_create_device_stream failed.\n");
+        exit(2);
+    }
 }
 
 void SharedMemory::Load() {
@@ -46,7 +52,7 @@ void SharedMemory::LoadImageData(FrameData& data)
         {
             break;
         }
-        std::cout << "Failed to load img from shared memory, retrying!\n";
+        std::cout << "Failed to LoadImageData from shared memory, retrying!\n";
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     data.image.load(img1);
@@ -410,7 +416,7 @@ bool SharedMemory::getImageSync(FrameData& data)
         {
             break;
         }
-        std::cout << "Failed to load img from shared memory, retrying!\n";
+        std::cout << "Failed to getImageSync from shared memory, retrying!\n";
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     data.image.load(img1);
