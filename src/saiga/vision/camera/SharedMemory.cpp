@@ -19,7 +19,7 @@ const std::string non_arm_error_msg = "This build is not for ARM, please use the
 SharedMemory::SharedMemory(const DatasetParameters& _params, Sequence sequence) : EuRoCDataset(_params, sequence, false)
 {
     params.preload = false;
-    camera_type = CameraInputType::Stereo;
+    camera_type_ = CameraInputType::Stereo;
     Load();
 #ifdef ARM
     // open msg receiver
@@ -35,7 +35,7 @@ SharedMemory::SharedMemory(const DatasetParameters& _params, Sequence sequence) 
 }
 
 void SharedMemory::Load() {
-    SAIGA_ASSERT(this->camera_type != CameraInputType::Unknown);
+    SAIGA_ASSERT(this->camera_type_ != CameraInputType::Unknown);
 
     int num_images = LoadMetaData();
     SAIGA_ASSERT((int)frames.size() == num_images);

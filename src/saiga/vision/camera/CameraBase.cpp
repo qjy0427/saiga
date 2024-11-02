@@ -47,7 +47,7 @@ void DatasetCameraBase::ResetTime()
 
 void DatasetCameraBase::Load()
 {
-    SAIGA_ASSERT(this->camera_type != CameraInputType::Unknown);
+    SAIGA_ASSERT(this->camera_type_ != CameraInputType::Unknown);
 
     int num_images = LoadMetaData();
     SAIGA_ASSERT((int)frames.size() == num_images);

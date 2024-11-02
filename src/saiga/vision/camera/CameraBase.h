@@ -42,11 +42,11 @@ class SAIGA_TEMPLATE CameraBase
     std::optional<Imu::Sensor> getIMU() { return imu; }
     std::optional<Imu::Sensor> imu;
 
-    CameraInputType CameraType() const { return camera_type; }
+    CameraInputType CameraType() const { return camera_type_; }
 
    protected:
-    CameraInputType camera_type = CameraInputType::Unknown;
-    int currentId               = 0;
+    CameraInputType camera_type_ = CameraInputType::Unknown;
+    int currentId                = 0;
 };
 
 

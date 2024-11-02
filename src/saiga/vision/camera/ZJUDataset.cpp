@@ -27,7 +27,7 @@ namespace Saiga
 {
 ZJUDataset::ZJUDataset(const DatasetParameters& params) : DatasetCameraBase(params)
 {
-    camera_type = CameraInputType::Mono;
+    camera_type_ = CameraInputType::Mono;
     Load();
 }
 

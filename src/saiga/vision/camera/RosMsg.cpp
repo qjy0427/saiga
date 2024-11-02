@@ -28,7 +28,6 @@ bool has_cam1 = false;
 double latest_imu_time = 0;
 
 void cam0Callback(const sensor_msgs::ImageConstPtr& msg) {
-    LOG(INFO) << "cam0Callback";
     if (msg->height == 0 || msg->width == 0) {
         LOG(ERROR) << "Image size is 0!";
         return;
@@ -52,22 +51,26 @@ void cam1Callback(const sensor_msgs::ImageConstPtr& msg) {
 }
 
 void imuCallback(const sensor_msgs::Imu& msg) {
-    // LOG(INFO) << "imuCallback";
     std::lock_guard lock(mtx_imu);
     imuQueue.push(msg);
     latest_imu_time = msg.header.stamp.toSec();
     cond_var_imu.notify_one();
 }
 
-RosMsg::RosMsg(const DatasetParameters& _params, Sequence sequence) :
-EuRoCDataset(_params, sequence, false), imageTransport(nodeHandle), spinner(3)
+RosMsg::RosMsg(const DatasetParameters& _params, Sequence sequence, CameraInputType camera_type)
+    :
+EuRoCDataset(_params, sequence, false, camera_type), imageTransport(nodeHandle), spinner(3)
 {
     params.preload = false;
-    camera_type = CameraInputType::Stereo;
     Load();
 
     cam0Subscriber = imageTransport.subscribe("/zhz/driver/cam4/image_raw", 1, &cam0Callback);
-    cam1Subscriber = imageTransport.subscribe("/zhz/driver/cam5/image_raw", 1, &cam1Callback);
+    if (camera_type_ == CameraInputType::Stereo)
+    {
+        LOG(INFO) << "Using stereo mode!";
+        use_stereo_ = true;
+        cam1Subscriber = imageTransport.subscribe("/zhz/driver/cam5/image_raw", 1, &cam1Callback);
+    }
     imuSubscriber = nodeHandle.subscribe("/mavros/imu/ned_data", 10, &imuCallback);
 
     LOG(INFO) << "SPINNING";
@@ -75,7 +78,7 @@ EuRoCDataset(_params, sequence, false), imageTransport(nodeHandle), spinner(3)
 }
 
 void RosMsg::Load() {
-    SAIGA_ASSERT(this->camera_type != CameraInputType::Unknown);
+    SAIGA_ASSERT(this->camera_type_ != CameraInputType::Unknown);
 
     int num_images = LoadMetaData();
     SAIGA_ASSERT((int)frames.size() == num_images);
@@ -100,11 +103,9 @@ std::vector<Imu::Data> RosMsg::GetImuSample(const double curr_time)
     std::vector<Imu::Data> vec_imu_data;
     while (vec_imu_data.size() < 2 || vec_imu_data.back().timestamp < curr_time) {
         if (latest_imu_time < curr_time || imuQueue.size() < 2) {
-            LOG(INFO) << "HERE";
             std::unique_lock lock(mtx_imu);
             cond_var_imu.wait(lock, [curr_time]{ return latest_imu_time >= curr_time && imuQueue.size() >= 2; });
         }
-        std::cout << "Getting IMU from last_time: " << last_time << " to curr_time: " << curr_time << std::endl;
         const sensor_msgs::Imu& imu = imuQueue.front();
         const double imu_time = imu.header.stamp.toSec();
         if (imu_time < last_time) {
@@ -119,7 +120,6 @@ std::vector<Imu::Data> RosMsg::GetImuSample(const double curr_time)
         vec_imu_data.emplace_back(result);
         std::unique_lock lock(mtx_imu);
         imuQueue.pop();
-        LOG(INFO) << "IMU timestamp: " << imu_time;
         if (imu_time >= curr_time && vec_imu_data.size() >= 2) {
             break;
         }
@@ -162,39 +162,48 @@ bool RosMsg::getImageSync(FrameData& data)
     data.id = currentId++;
 
     SAIGA_ASSERT(data.image.rows == 0);
-    if (image_queue0.empty() || image_queue1.empty()) {
-        std::cout << "image_queue0.empty() || image_queue1.empty()\n";
+    if (image_queue0.empty() || use_stereo_ && image_queue1.empty()) {
         std::unique_lock lock0(mtx0);
-        std::unique_lock lock1(mtx1);
         has_cam0 = !image_queue0.empty();
-        has_cam1 = !image_queue1.empty();
-        // 等待直到有新数据或生产者完成
         cond_var0.wait(lock0, []{ return has_cam0; });
-        cond_var1.wait(lock1, []{ return has_cam1; });
+        if (use_stereo_)
+        {
+            std::unique_lock lock1(mtx1);
+            has_cam1 = !image_queue1.empty();
+            cond_var1.wait(lock1, []{ return has_cam1; });
+        }
     }
-    while (!image_queue0.empty() && !image_queue1.empty()) {
+    while (!image_queue0.empty() && (!use_stereo_ || !image_queue1.empty())) {
         const sensor_msgs::ImageConstPtr& img0 = image_queue0.front();
-        const sensor_msgs::ImageConstPtr& img1 = image_queue1.front();
         const double img0_time = img0->header.stamp.toSec();
-        const double img1_time = img1->header.stamp.toSec();
-        if (img0_time < img1_time) {
-            std::cout << "img0_time < img1_time\n";
-            image_queue0.pop();
-        } else if (img0_time > img1_time) {
-            std::cout << "img0_time > img1_time\n";
-            image_queue1.pop();
-        } else {
+        if (use_stereo_)
+        {
+            const sensor_msgs::ImageConstPtr& img1 = image_queue1.front();
+            const double img1_time = img1->header.stamp.toSec();
+            if (img0_time < img1_time) {
+                std::cout << "img0_time < img1_time\n";
+                image_queue0.pop();
+            } else if (img0_time > img1_time) {
+                std::cout << "img0_time > img1_time\n";
+                image_queue1.pop();
+            } else {
+                data.image.load(img0);
+                data.right_image.load(img1);
+                data.timeStamp = img0_time;
+                image_queue0.pop();
+                image_queue1.pop();
+                break;
+            }
+        } else
+        {
             data.image.load(img0);
-            data.right_image.load(img1);
             data.timeStamp = img0_time;
             image_queue0.pop();
-            image_queue1.pop();
             break;
         }
     }
 
     std::vector<Imu::Data> imu_data = GetImuSample(data.timeStamp);
-    std::cout << "imu data size: " << imu_data.size() << std::endl;
     if (!imu_data.empty()) {
         data.timeStamp = findNearestElement(getTimestamps(imu_data), data.timeStamp);
     }
@@ -204,14 +213,6 @@ bool RosMsg::getImageSync(FrameData& data)
     if (last_imu_data.size() >= 2 && last_imu_data[last_imu_data.size() - 1].timestamp >= last_time)
     {
         imu_data.insert(imu_data.begin(), last_imu_data.end() - 2, last_imu_data.end());
-
-        // std::cout << "data.empty(): " << data.imu_data.data.empty() << std::endl;
-        // std::cout << "data.imu_data.time_begin: " << data.imu_data.time_begin << std::endl;
-        // std::cout << "data.imu_data.data.front().timestamp: " << data.imu_data.data.front().timestamp << std::endl;
-        // std::cout << "data.imu_data.time_end: " << data.imu_data.time_end << std::endl;
-        // std::cout << "data.imu_data.data.back().timestamp: " << data.imu_data.data.back().timestamp << std::endl;
-
-        // SAIGA_ASSERT(data.imu_data.complete());
     }
     data.imu_data.data       = imu_data;
     data.imu_data.time_begin = last_time;
@@ -221,7 +222,6 @@ bool RosMsg::getImageSync(FrameData& data)
 
     last_imu_data = imu_data;
     last_time     = data.timeStamp;
-    std::cout << "Successfully loaded imgs and IMUs.\n";
     return true;
 }
 

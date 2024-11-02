@@ -23,7 +23,7 @@ namespace Saiga
 ScannetDataset::ScannetDataset(const DatasetParameters& _params, bool scale_down_color, bool scale_down_depth)
     : DatasetCameraBase(_params), scale_down_color(scale_down_color), scale_down_depth(scale_down_depth)
 {
-    camera_type = CameraInputType::RGBD;
+    camera_type_ = CameraInputType::RGBD;
     Load();
 }
 

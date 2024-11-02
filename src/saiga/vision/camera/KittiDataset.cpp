@@ -18,7 +18,7 @@ namespace Saiga
 {
 KittiDataset::KittiDataset(const DatasetParameters& params_) : DatasetCameraBase(params_)
 {
-    camera_type = CameraInputType::Stereo;
+    camera_type_ = CameraInputType::Stereo;
     // Kitti was recorded with 10 fps
     intrinsics.fps = 10;
     Load();

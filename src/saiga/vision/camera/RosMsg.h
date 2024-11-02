@@ -17,6 +17,7 @@ namespace Saiga
 {
 
 class SAIGA_VISION_API RosMsg : public EuRoCDataset {
+    bool use_stereo_ = false;
     std::vector<Imu::Data> last_imu_data;
     double last_time = 0;
     double last_imu_time = 0;
@@ -28,7 +29,8 @@ class SAIGA_VISION_API RosMsg : public EuRoCDataset {
     std::string cam0_topic, cam1_topic, imu_topic;
 
 public:
-    explicit RosMsg(const DatasetParameters& params, Sequence sequence = UNKNOWN);
+    explicit RosMsg(const DatasetParameters& params, Sequence sequence = UNKNOWN,
+        CameraInputType camera_type = CameraInputType::Mono);
 
     void Load();
 

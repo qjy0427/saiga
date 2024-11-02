@@ -49,7 +49,8 @@ class SAIGA_VISION_API EuRoCDataset : public DatasetCameraBase
         UNKNOWN
     };
 
-    explicit EuRoCDataset(const DatasetParameters& params, Sequence sequence = UNKNOWN, bool should_load = true);
+    explicit EuRoCDataset(const DatasetParameters& params, Sequence sequence = UNKNOWN,
+        bool should_load = true, CameraInputType camera_type = CameraInputType::Stereo);
 
     StereoIntrinsics intrinsics;
 
