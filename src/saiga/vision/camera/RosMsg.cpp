@@ -23,8 +23,6 @@ std::mutex mtx_imu;
 std::condition_variable cond_var0;
 std::condition_variable cond_var1;
 std::condition_variable cond_var_imu;
-bool has_cam0 = false;
-bool has_cam1 = false;
 double latest_imu_time = 0;
 
 void cam0Callback(const sensor_msgs::ImageConstPtr& msg) {
@@ -34,7 +32,6 @@ void cam0Callback(const sensor_msgs::ImageConstPtr& msg) {
     }
     std::lock_guard lock(mtx0);
     image_queue0.push(msg);
-    has_cam0 = true;
     cond_var0.notify_one();
 }
 
@@ -45,7 +42,6 @@ void cam1Callback(const sensor_msgs::ImageConstPtr& msg) {
     }
     std::lock_guard lock(mtx1);
     image_queue1.push(msg);
-    has_cam1 = true;
     cond_var1.notify_one();
 }
 
@@ -163,13 +159,34 @@ bool RosMsg::getImageSync(FrameData& data)
     SAIGA_ASSERT(data.image.rows == 0);
     if (image_queue0.empty() || (use_stereo_ && image_queue1.empty())) {
         std::unique_lock lock0(mtx0);
-        has_cam0 = !image_queue0.empty();
-        cond_var0.wait(lock0, []{ return has_cam0; });
+        cond_var0.wait(lock0, []{ return !image_queue0.empty(); });
+        lock0.unlock();  // Don't forget to unlock so image_queue0 can continue being filled!
         if (use_stereo_)
         {
             std::unique_lock lock1(mtx1);
-            has_cam1 = !image_queue1.empty();
-            cond_var1.wait(lock1, []{ return has_cam1; });
+            cond_var1.wait(lock1, []
+            {
+                if (image_queue1.empty())
+                {
+                    return false;
+                }
+                while (!image_queue0.empty() &&
+                    image_queue0.front()->header.stamp.toSec() < image_queue1.front()->header.stamp.toSec())
+                {
+                    image_queue0.pop();
+                }
+                if (image_queue0.empty())
+                {
+                    return false;
+                }
+
+                while (!image_queue1.empty() &&
+                    image_queue1.front()->header.stamp.toSec() < image_queue0.front()->header.stamp.toSec())
+                {
+                    image_queue1.pop();
+                }
+                return !image_queue1.empty();
+            });
         }
     }
     while (!image_queue0.empty() && (!use_stereo_ || !image_queue1.empty())) {
@@ -180,10 +197,10 @@ bool RosMsg::getImageSync(FrameData& data)
             const sensor_msgs::ImageConstPtr& img1 = image_queue1.front();
             const double img1_time = img1->header.stamp.toSec();
             if (img0_time < img1_time) {
-                std::cout << "img0_time < img1_time\n";
+                std::cout << "img0_time: " << img0_time << " < img1_time: " << img1_time << "\n";
                 image_queue0.pop();
             } else if (img0_time > img1_time) {
-                std::cout << "img0_time > img1_time\n";
+                std::cout << "img0_time: " << img0_time << " > img1_time: " << img1_time << "\n";
                 image_queue1.pop();
             } else {
                 data.image.load(img0);
