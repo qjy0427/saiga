@@ -39,7 +39,6 @@ void cam0Callback(const sensor_msgs::ImageConstPtr& msg) {
 }
 
 void cam1Callback(const sensor_msgs::ImageConstPtr& msg) {
-    LOG(INFO) << "cam1Callback";
     if (msg->height == 0 || msg->width == 0) {
         LOG(ERROR) << "Image size is 0!";
         return;
@@ -162,7 +161,7 @@ bool RosMsg::getImageSync(FrameData& data)
     data.id = currentId++;
 
     SAIGA_ASSERT(data.image.rows == 0);
-    if (image_queue0.empty() || use_stereo_ && image_queue1.empty()) {
+    if (image_queue0.empty() || (use_stereo_ && image_queue1.empty())) {
         std::unique_lock lock0(mtx0);
         has_cam0 = !image_queue0.empty();
         cond_var0.wait(lock0, []{ return has_cam0; });
