@@ -101,6 +101,11 @@ UnifiedMeshBuffer::~UnifiedMeshBuffer()
 
 void UnifiedMeshBuffer::Draw(int offset, int count)
 {
+    if (num_elements == 0)
+    {
+        std::cerr << "Skipping drawing since UnifiedMeshBuffer::Draw: num_elements == 0" << std::endl;
+        return;
+    }
     //    if(count > num_triangles)  count = num_triangles;
     SAIGA_ASSERT(num_elements > 0);
     count = std::min(count, num_elements - offset);
