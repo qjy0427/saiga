@@ -23,8 +23,6 @@ public:
 
     void Load();
 
-    void LoadImageData(FrameData& data) override;
-
     int LoadMetaData() override;
 
     bool getImageSync(FrameData& data) override;

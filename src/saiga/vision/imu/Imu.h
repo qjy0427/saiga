@@ -189,12 +189,15 @@ struct SAIGA_VISION_API ImuSequence
         {
             return true;
         }
+        std::cerr << "IMU samples are not complete! Details:\n";
+        std::cerr << "time_begin: " << time_begin << " data.front().timestamp: " << data.front().timestamp << std::endl;
+        std::cerr << "time_end: " << time_end << " data.back().timestamp: " << data.back().timestamp << std::endl;
         return false;
     }
 
     bool Valid() const
     {
-        if (!std::isfinite(time_begin) || !std::isfinite(time_begin))
+        if (!std::isfinite(time_begin) || !std::isfinite(time_end))
         {
             return false;
         }

@@ -56,6 +56,7 @@ class SAIGA_VISION_API EuRoCDataset : public DatasetCameraBase
 
     virtual void LoadImageData(FrameData& data) override;
     virtual int LoadMetaData() override;
+    void LoadMostMetaData();
 
 
     static std::vector<std::string> DatasetNames()
@@ -75,6 +76,7 @@ class SAIGA_VISION_API EuRoCDataset : public DatasetCameraBase
     std::vector<std::pair<double, std::string>> cam0_images, cam1_images;
 
     friend class SharedMemory;
+    friend class RosMsg;
 };
 
 }  // namespace Saiga

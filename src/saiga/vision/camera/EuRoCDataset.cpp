@@ -94,7 +94,7 @@ void EuRoCDataset::LoadImageData(FrameData& data)
     }
 }
 
-int EuRoCDataset::LoadMetaData()
+void EuRoCDataset::LoadMostMetaData()
 {
     std::cout << "Loading EuRoCDataset Stereo Dataset: " << params.dir << std::endl;
 
@@ -135,7 +135,6 @@ int EuRoCDataset::LoadMetaData()
         intrinsics.model.dis.p2 = d(3);
         Mat4 m                  = readYamlMatrix<Mat4>(config["T_BS"]["data"]);
         extrinsics_cam0         = SE3::fitToSE3(m);
-        cam0_images             = loadTimestapDataCSV(params.dir + "/cam0/data.csv");
     }
 
     {
@@ -164,7 +163,6 @@ int EuRoCDataset::LoadMetaData()
         intrinsics.rightModel.dis.p2 = d(3);
         Mat4 m                       = readYamlMatrix<Mat4>(config["T_BS"]["data"]);
         extrinsics_cam1              = SE3::fitToSE3(m);
-        cam1_images                  = loadTimestapDataCSV(params.dir + "/cam1/data.csv");
     }
 
     {
@@ -398,8 +396,13 @@ int EuRoCDataset::LoadMetaData()
 
     SAIGA_ASSERT(intrinsics.imageSize == intrinsics.rightImageSize);
     VLOG(1) << intrinsics;
+}
 
-
+int EuRoCDataset::LoadMetaData()
+{
+    LoadMostMetaData();
+    cam0_images = loadTimestapDataCSV(params.dir + "/cam0/data.csv");
+    cam1_images = loadTimestapDataCSV(params.dir + "/cam1/data.csv");
 
     if (params.normalize_timestamps)
     {
@@ -419,9 +422,9 @@ int EuRoCDataset::LoadMetaData()
         std::vector<double> left_timestamps, right_timestamps;
         std::vector<double> gt_timestamps;
 
-        for (auto i : cam0_images) left_timestamps.push_back(i.first);
-        for (auto i : cam1_images) right_timestamps.push_back(i.first);
-        for (auto i : ground_truth) gt_timestamps.push_back(i.first);
+        for (const auto& i : cam0_images) left_timestamps.push_back(i.first);
+        for (const auto& i : cam1_images) right_timestamps.push_back(i.first);
+        for (const auto& i : ground_truth) gt_timestamps.push_back(i.first);
 
 
         for (int i = 0; i < cam0_images.size(); ++i)

@@ -9,6 +9,8 @@
 
 #include <iostream>
 
+#include "sensor_msgs/Image.h"
+
 #include "../ua-sdk/include/vision_service_direct_funcs.h"
 
 namespace Saiga
@@ -94,6 +96,18 @@ class TemplatedImage : public Image
         {
             char* row_ptr = frame.data + (row * frame.step);
             memcpy(rowPtr(row), row_ptr, frame.cols * sizeof(T));
+        }
+        return true;
+    }
+
+    bool load(const sensor_msgs::ImageConstPtr& img)
+    {
+        create(img->height, img->width);
+        makeZero();
+        for (int row = 0; row < img->height; ++row)
+        {
+            char* row_ptr = (char*)(&img->data[0] + row * img->step);
+            memcpy(rowPtr(row), row_ptr, img->width * sizeof(T));
         }
         return true;
     }
