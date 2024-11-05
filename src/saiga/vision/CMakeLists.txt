@@ -73,9 +73,13 @@ find_package(catkin REQUIRED COMPONENTS
         image_transport
         roscpp
         sensor_msgs
+        nav_msgs
         std_msgs
         tf2
         tf2_ros
+)
+include_directories(
+        ${catkin_INCLUDE_DIRS}
 )
 
 target_link_libraries(${MODULE_NAME} ${VISION_TARGETS} ${VISION_LIBS} ${NX_Driver_LIBS} ${catkin_LIBRARIES})

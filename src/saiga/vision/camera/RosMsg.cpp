@@ -9,6 +9,7 @@
 #include "saiga/core/util/yaml.h"
 
 #include "glog/logging.h"
+#include "nav_msgs/Odometry.h"
 
 namespace Saiga
 {
@@ -20,10 +21,14 @@ std::queue<sensor_msgs::Imu> imuQueue;
 std::mutex mtx0;
 std::mutex mtx1;
 std::mutex mtx_imu;
+std::mutex yaw_mtx;
 std::condition_variable cond_var0;
 std::condition_variable cond_var1;
 std::condition_variable cond_var_imu;
+std::condition_variable cond_var_yaw;
 double latest_imu_time = 0;
+double init_global_yaw = 0.0;
+bool yawReceived = false;
 
 void cam0Callback(const sensor_msgs::ImageConstPtr& msg) {
     if (msg->height == 0 || msg->width == 0) {
@@ -52,12 +57,65 @@ void imuCallback(const sensor_msgs::Imu& msg) {
     cond_var_imu.notify_one();
 }
 
+//Quat --> Euler(Z-Y-X) (pitch range is limited to [-pi/2, pi/2])
+Eigen::Vector3d Quaterniond2EulerAngles(const Eigen::Quaterniond& q) {
+    Eigen::Vector3d angles;
+
+    // roll (x-axis rotation)
+    double sinr_cosp = 2 * (q.w() * q.x() + q.y() * q.z());
+    double cosr_cosp = 1 - 2 * (q.x() * q.x() + q.y() * q.y());
+    angles(2) = std::atan2(sinr_cosp, cosr_cosp);
+
+    // pitch (y-axis rotation)
+    double sinp = 2 * (q.w() * q.y() - q.z() * q.x());
+    if (std::abs(sinp) >= 1)
+        angles(1) = std::copysign(M_PI / 2, sinp); // use 90 degrees if out of range
+    else
+        angles(1) = std::asin(sinp);
+
+    // yaw (z-axis rotation)
+    double siny_cosp = 2 * (q.w() * q.z() + q.x() * q.y());
+    double cosy_cosp = 1 - 2 * (q.y() * q.y() + q.z() * q.z());
+    angles(0) = std::atan2(siny_cosp, cosy_cosp);
+
+    return angles;
+}
+
+void mavrosOdometryCallback(const nav_msgs::Odometry::ConstPtr& msg) {
+    std::lock_guard<std::mutex> lock(yaw_mtx);
+    const auto& q = msg->pose.pose.orientation;
+    const Eigen::Quaterniond enu_quat(q.w, q.x, q.y, q.z);
+    const Eigen::Vector3d eulerAngles =
+        Quaterniond2EulerAngles(enu_quat);  // ZYX order
+    const double globalYaw = eulerAngles[0] * 180.0 / M_PI;
+    init_global_yaw = globalYaw;
+    LOG(INFO) << "parameter globalYaw set to " << globalYaw;
+    yawReceived = true;
+    cond_var_yaw.notify_one();
+}
+
 RosMsg::RosMsg(const DatasetParameters& _params, Sequence sequence, CameraInputType camera_type)
     :
 EuRoCDataset(_params, sequence, false, camera_type), imageTransport(nodeHandle), spinner(3)
 {
     params.preload = false;
     Load();
+
+    const std::string mavrosLocalOdometryTopicName = "/mavros/local_position/odom";
+    if (!mavrosLocalOdometryTopicName.empty()) {
+        ros::Subscriber sub = nodeHandle.subscribe(mavrosLocalOdometryTopicName,
+            10, &mavrosOdometryCallback);
+        std::unique_lock<std::mutex> lock(yaw_mtx);
+        ros::AsyncSpinner spinner(1);
+        spinner.start();
+        LOG(INFO) << "Waiting for yaw from " << mavrosLocalOdometryTopicName.c_str();
+        cond_var_yaw.wait(lock, [] {
+            return yawReceived;
+        });
+        init_global_yaw_ = init_global_yaw;
+        sub.shutdown();
+        spinner.stop();
+    }
 
     cam0Subscriber = imageTransport.subscribe("/zhz/driver/cam4/image_raw", 1, &cam0Callback);
     if (camera_type_ == CameraInputType::Stereo)

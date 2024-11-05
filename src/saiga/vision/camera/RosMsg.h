@@ -29,6 +29,8 @@ class SAIGA_VISION_API RosMsg : public EuRoCDataset {
     std::string cam0_topic, cam1_topic, imu_topic;
 
 public:
+    double init_global_yaw_ = 0.0;
+
     explicit RosMsg(const DatasetParameters& params, Sequence sequence = UNKNOWN,
         CameraInputType camera_type = CameraInputType::Mono);
 
