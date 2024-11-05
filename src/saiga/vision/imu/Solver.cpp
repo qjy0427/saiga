@@ -185,8 +185,7 @@ std::tuple<double, Vec3, Vec3, double> SolveScaleGravityBiasLinear(ArrayView<Imu
         SE3 Twc3 = *triplet.pose3;
 
         double weight = 100.0 / (dt12 + dt23) * triplet.weight;
-
-        //        double weight = 1;
+        // double weight = 1;
 
         // Position of camera center
         Vec3 pc1 = Twc1.translation();

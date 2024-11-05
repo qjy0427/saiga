@@ -94,15 +94,17 @@ void mavrosOdometryCallback(const nav_msgs::Odometry::ConstPtr& msg) {
     cond_var_yaw.notify_one();
 }
 
-RosMsg::RosMsg(const DatasetParameters& _params, Sequence sequence, CameraInputType camera_type)
+RosMsg::RosMsg(const DatasetParameters& _params, Sequence sequence, CameraInputType camera_type,
+    const Snake::Settings& settings)
     :
-EuRoCDataset(_params, sequence, false, camera_type), imageTransport(nodeHandle), spinner(3)
+EuRoCDataset(_params, sequence, false, camera_type), imageTransport(nodeHandle), spinner(3),
+settings_(settings)
 {
     params.preload = false;
     Load();
 
-    const std::string mavrosLocalOdometryTopicName = "/mavros/local_position/odom";
-    if (!mavrosLocalOdometryTopicName.empty()) {
+    const std::string mavrosLocalOdometryTopicName = settings_.mavros_odom_ros_topic;
+    if (settings_.enable_mavros_yaw_init && !mavrosLocalOdometryTopicName.empty()) {
         ros::Subscriber sub = nodeHandle.subscribe(mavrosLocalOdometryTopicName,
             10, &mavrosOdometryCallback);
         std::unique_lock<std::mutex> lock(yaw_mtx);
@@ -117,14 +119,17 @@ EuRoCDataset(_params, sequence, false, camera_type), imageTransport(nodeHandle),
         spinner.stop();
     }
 
-    cam0Subscriber = imageTransport.subscribe("/zhz/driver/cam4/image_raw", 1, &cam0Callback);
+    cam0Subscriber = imageTransport.subscribe(settings_.left_cam_ros_topic, 1, &cam0Callback);
+    LOG(INFO) << "Cam0 subscribed " << settings_.left_cam_ros_topic;
     if (camera_type_ == CameraInputType::Stereo)
     {
         LOG(INFO) << "Using stereo mode!";
         use_stereo_ = true;
-        cam1Subscriber = imageTransport.subscribe("/zhz/driver/cam5/image_raw", 1, &cam1Callback);
+        cam1Subscriber = imageTransport.subscribe(settings_.right_cam_ros_topic, 1, &cam1Callback);
+        LOG(INFO) << "Cam1 subscribed " << settings_.right_cam_ros_topic;
     }
-    imuSubscriber = nodeHandle.subscribe("/mavros/imu/ned_data", 10, &imuCallback);
+    imuSubscriber = nodeHandle.subscribe(settings_.imu_ros_topic, 10, &imuCallback);
+    LOG(INFO) << "IMU subscribed " << settings_.imu_ros_topic;
 
     LOG(INFO) << "SPINNING";
     spinner.start();

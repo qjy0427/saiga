@@ -13,6 +13,8 @@
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/Image.h>
 
+#include "Snake/System/Settings.h"
+
 namespace Saiga
 {
 
@@ -27,12 +29,13 @@ class SAIGA_VISION_API RosMsg : public EuRoCDataset {
     ros::Subscriber imuSubscriber;
     ros::AsyncSpinner spinner;
     std::string cam0_topic, cam1_topic, imu_topic;
+    const Snake::Settings& settings_;
 
 public:
     double init_global_yaw_ = 0.0;
 
-    explicit RosMsg(const DatasetParameters& params, Sequence sequence = UNKNOWN,
-        CameraInputType camera_type = CameraInputType::Mono);
+    explicit RosMsg(const DatasetParameters& params, Sequence sequence,
+        CameraInputType camera_type, const Snake::Settings& settings);
 
     void Load();
 

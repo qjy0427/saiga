@@ -78,9 +78,14 @@ find_package(catkin REQUIRED COMPONENTS
         tf2
         tf2_ros
 )
+catkin_package(
+        CATKIN_DEPENDS roscpp sensor_msgs
+)
 include_directories(
         ${catkin_INCLUDE_DIRS}
+        ${PROJECT_SOURCE_DIR}/../..
 )
+MESSAGE(Saiga PROJECT_SOURCE_DIR: ${PROJECT_SOURCE_DIR})
 
 target_link_libraries(${MODULE_NAME} ${VISION_TARGETS} ${VISION_LIBS} ${NX_Driver_LIBS} ${catkin_LIBRARIES})
 target_link_libraries(${MODULE_NAME} saiga_core)
