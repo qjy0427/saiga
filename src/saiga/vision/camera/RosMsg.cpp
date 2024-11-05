@@ -14,7 +14,7 @@
 namespace Saiga
 {
 
-constexpr int kImgQueueSizeThreshold = 3;
+constexpr int kImgQueueSizeThreshold = 0;
 
 std::queue<sensor_msgs::ImageConstPtr> image_queue0;
 std::queue<sensor_msgs::ImageConstPtr> image_queue1;
@@ -34,6 +34,11 @@ bool yawReceived = false;
 
 void cam0Callback(const sensor_msgs::ImageConstPtr& msg) {
     std::lock_guard lock(mtx0);
+    if (image_queue0.size() > kImgQueueSizeThreshold)
+    {
+        // LOG(WARNING) << "image queue size too large, omitting!";
+        image_queue0.pop();
+    }
     if (msg->height == 0 || msg->width == 0) {
         LOG(ERROR) << "Image size is 0!";
         return;
@@ -44,6 +49,11 @@ void cam0Callback(const sensor_msgs::ImageConstPtr& msg) {
 
 void cam1Callback(const sensor_msgs::ImageConstPtr& msg) {
     std::lock_guard lock(mtx1);
+    if (image_queue1.size() > kImgQueueSizeThreshold)
+    {
+        // LOG(WARNING) << "image queue size too large, omitting!";
+        image_queue1.pop();
+    }
     if (msg->height == 0 || msg->width == 0) {
         LOG(ERROR) << "Image size is 0!";
         return;
@@ -187,117 +197,45 @@ std::vector<Imu::Data> RosMsg::GetImuSample(const double curr_time)
     return vec_imu_data;
 }
 
-double findNearestElement(const std::vector<double>& sorted_vec, double target) {
-    if (sorted_vec.empty()) {
-        LOG(ERROR) << "sorted_vec is empty!";
-        return target;
-    }
-    auto lower = std::lower_bound(
-        sorted_vec.begin(), sorted_vec.end(), target);
-
-    if (lower == sorted_vec.end()) {
-        return sorted_vec.back();
-    }
-    if (lower == sorted_vec.begin()) {
-        return *lower;
-    }
-
-    auto prev = lower - 1;
-    if (std::abs(*prev - target) <= std::abs(*lower - target)) {
-        return *prev;
-    }
-    return *lower;
-}
-
-std::vector<double> getTimestamps(const std::vector<Imu::Data>& imu_data) {
-    std::vector<double> timestamps;
-    for (const auto& data : imu_data) {
-        timestamps.push_back(data.timestamp);
-    }
-    return timestamps;
-}
-
 bool RosMsg::getImageSync(FrameData& data)
 {
     data.id = currentId++;
 
     SAIGA_ASSERT(data.image.rows == 0);
-    if (image_queue0.empty() || (use_stereo_ && image_queue1.empty())) {
-        std::unique_lock lock0(mtx0);
-        if (image_queue0.size() > kImgQueueSizeThreshold)
+    sensor_msgs::ImageConstPtr image0;
+    sensor_msgs::ImageConstPtr image1;
+    std::unique_lock lock0(mtx0);
+    cond_var0.wait(lock0, []{ return !image_queue0.empty(); });
+    image0 = image_queue0.front();
+    image_queue0.pop();
+    lock0.unlock();  // Don't forget to unlock so image_queue0 can continue being filled!
+    if (use_stereo_)
+    {
+        std::unique_lock lock1(mtx1);
+        cond_var1.wait(lock1, []
         {
-            LOG(WARNING) << "Clear image_queue0 since image_queue0.size() > " << kImgQueueSizeThreshold;
-            while (!image_queue0.empty())
-            {
-                image_queue0.pop();
-            }
-        }
-        cond_var0.wait(lock0, []{ return !image_queue0.empty(); });
-        lock0.unlock();  // Don't forget to unlock so image_queue0 can continue being filled!
-        if (use_stereo_)
-        {
-            std::unique_lock lock1(mtx1);
-            if (image_queue1.size() > kImgQueueSizeThreshold)
-            {
-                LOG(WARNING) << "Clear image_queue1 since image_queue1.size() > " << kImgQueueSizeThreshold;
-                while (!image_queue1.empty())
-                {
-                    image_queue1.pop();
-                }
-            }
-            cond_var1.wait(lock1, []
-            {
-                if (image_queue1.empty())
-                {
-                    return false;
-                }
-                while (!image_queue0.empty() &&
-                    image_queue0.front()->header.stamp.toSec() < image_queue1.front()->header.stamp.toSec())
-                {
-                    image_queue0.pop();
-                }
-                if (image_queue0.empty())
-                {
-                    return false;
-                }
-
-                while (!image_queue1.empty() &&
-                    image_queue1.front()->header.stamp.toSec() < image_queue0.front()->header.stamp.toSec())
-                {
-                    image_queue1.pop();
-                }
-                return !image_queue1.empty();
-            });
-        }
+            return !image_queue1.empty();
+        });
+        image1 = image_queue1.front();
+        image_queue1.pop();
     }
-    while (!image_queue0.empty() && (!use_stereo_ || !image_queue1.empty())) {
-        const sensor_msgs::ImageConstPtr& img0 = image_queue0.front();
-        const double img0_time = img0->header.stamp.toSec();
-        if (use_stereo_)
-        {
-            const sensor_msgs::ImageConstPtr& img1 = image_queue1.front();
-            const double img1_time = img1->header.stamp.toSec();
-            if (img0_time < img1_time) {
-                std::cout << "img0_time: " << img0_time << " < img1_time: " << img1_time << "\n";
-                image_queue0.pop();
-            } else if (img0_time > img1_time) {
-                std::cout << "img0_time: " << img0_time << " > img1_time: " << img1_time << "\n";
-                image_queue1.pop();
-            } else {
-                data.image.load(img0);
-                data.right_image.load(img1);
-                data.timeStamp = img0_time;
-                image_queue0.pop();
-                image_queue1.pop();
-                break;
-            }
+
+    const double img0_time = image0->header.stamp.toSec();
+    if (use_stereo_)
+    {
+        const double img1_time = image1->header.stamp.toSec();
+        if (fabs(img0_time - img1_time) < 1e-9) {
+            data.image.load(image0);
+            data.right_image.load(image1);
+            data.timeStamp = img0_time;
         } else
         {
-            data.image.load(img0);
-            data.timeStamp = img0_time;
-            image_queue0.pop();
-            break;
+            return false;
         }
+    } else
+    {
+        data.image.load(image0);
+        data.timeStamp = img0_time;
     }
 
     std::vector<Imu::Data> imu_data = GetImuSample(data.timeStamp);
