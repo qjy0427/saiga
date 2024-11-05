@@ -96,6 +96,13 @@ void Image::makeZero()
 
 bool Image::valid() const
 {
+    if (width > 0 && height > 0 && pitchBytes > 0 && type != TYPE_UNKNOWN && size() == vdata.size())
+    {
+
+    } else {
+        std::cerr << "width: " << width << " height: " << height << " pitchBytes: " << pitchBytes << " type: " << type
+                  << " size: " << size() << " vdata.size: " << vdata.size() << std::endl;
+    }
     return width > 0 && height > 0 && pitchBytes > 0 && type != TYPE_UNKNOWN && size() == vdata.size();
 }
 

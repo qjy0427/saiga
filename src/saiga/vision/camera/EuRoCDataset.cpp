@@ -186,8 +186,29 @@ void EuRoCDataset::LoadMostMetaData()
         VLOG(1) << *imu;
     }
 
+    // SE3 groundTruthToCamera = extrinsics_gt.inverse() * extrinsics_cam0;
+    intrinsics.camera_to_gt   = extrinsics_cam0.inverse() * extrinsics_gt;
+    intrinsics.camera_to_body = extrinsics_cam0.inverse();
+
+    std::cout << "Camera -> GT  : " << intrinsics.camera_to_gt << std::endl;
+    std::cout << "Camera -> Body: " << intrinsics.camera_to_body << std::endl;
 
 
+
+    intrinsics.left_to_right = extrinsics_cam1.inverse() * extrinsics_cam0;
+    intrinsics.maxDepth      = 35;
+    intrinsics.bf            = intrinsics.left_to_right.translation().norm() * intrinsics.model.K.fx;
+    //    std::cout << "Left->Right: " << intrinsics.left_to_right << std::endl;
+
+    SAIGA_ASSERT(intrinsics.imageSize == intrinsics.rightImageSize);
+    VLOG(1) << intrinsics;
+}
+
+int EuRoCDataset::LoadMetaData()
+{
+    LoadMostMetaData();
+    cam0_images = loadTimestapDataCSV(params.dir + "/cam0/data.csv");
+    cam1_images = loadTimestapDataCSV(params.dir + "/cam1/data.csv");
     auto vicon0_file = params.dir + "/" + "vicon0/sensor.yaml";
     auto leica0_file = params.dir + "/" + "leica0/sensor.yaml";
 
@@ -328,23 +349,7 @@ void EuRoCDataset::LoadMostMetaData()
         // extrinsics_gt     = SE3::fitToSE3(m);
     }
 
-
     std::sort(ground_truth.begin(), ground_truth.end(), [](auto a, auto b) { return a.first < b.first; });
-
-    // SE3 groundTruthToCamera = extrinsics_gt.inverse() * extrinsics_cam0;
-    intrinsics.camera_to_gt   = extrinsics_cam0.inverse() * extrinsics_gt;
-    intrinsics.camera_to_body = extrinsics_cam0.inverse();
-
-    std::cout << "Camera -> GT  : " << intrinsics.camera_to_gt << std::endl;
-    std::cout << "Camera -> Body: " << intrinsics.camera_to_body << std::endl;
-
-
-
-    intrinsics.left_to_right = extrinsics_cam1.inverse() * extrinsics_cam0;
-    intrinsics.maxDepth      = 35;
-    intrinsics.bf            = intrinsics.left_to_right.translation().norm() * intrinsics.model.K.fx;
-    //    std::cout << "Left->Right: " << intrinsics.left_to_right << std::endl;
-
     {
         // == Imu Data ==
         // Format:
@@ -390,19 +395,8 @@ void EuRoCDataset::LoadMostMetaData()
     //    at "
     //              << imuData.front().timestamp << " First GT at " << ground_truth.front().first << std::endl;
 
-
     std::cout << "Found " << cam1_images.size() << " images and " << ground_truth.size()
               << " ground truth meassurements and " << imuData.size() << " IMU meassurements." << std::endl;
-
-    SAIGA_ASSERT(intrinsics.imageSize == intrinsics.rightImageSize);
-    VLOG(1) << intrinsics;
-}
-
-int EuRoCDataset::LoadMetaData()
-{
-    LoadMostMetaData();
-    cam0_images = loadTimestapDataCSV(params.dir + "/cam0/data.csv");
-    cam1_images = loadTimestapDataCSV(params.dir + "/cam1/data.csv");
 
     if (params.normalize_timestamps)
     {

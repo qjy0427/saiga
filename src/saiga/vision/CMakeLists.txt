@@ -66,26 +66,6 @@ else ()
     add_definitions(-DARM)
 endif ()
 
-message("CMAKE_PREFIX_PATH:  ${CMAKE_PREFIX_PATH}")
-# ROS
-find_package(catkin REQUIRED COMPONENTS
-#        cv_bridge
-        image_transport
-        roscpp
-        sensor_msgs
-        nav_msgs
-        std_msgs
-        tf2
-        tf2_ros
-)
-catkin_package(
-        CATKIN_DEPENDS roscpp sensor_msgs
-)
-include_directories(
-        ${catkin_INCLUDE_DIRS}
-        ${PROJECT_SOURCE_DIR}/../..
-)
-MESSAGE(Saiga PROJECT_SOURCE_DIR: ${PROJECT_SOURCE_DIR})
 
 target_link_libraries(${MODULE_NAME} ${VISION_TARGETS} ${VISION_LIBS} ${NX_Driver_LIBS} ${catkin_LIBRARIES})
 target_link_libraries(${MODULE_NAME} saiga_core)
