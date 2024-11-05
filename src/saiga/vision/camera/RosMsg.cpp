@@ -14,6 +14,8 @@
 namespace Saiga
 {
 
+constexpr int kImgQueueSizeThreshold = 3;
+
 std::queue<sensor_msgs::ImageConstPtr> image_queue0;
 std::queue<sensor_msgs::ImageConstPtr> image_queue1;
 std::queue<sensor_msgs::Imu> imuQueue;
@@ -31,21 +33,21 @@ double init_global_yaw = 0.0;
 bool yawReceived = false;
 
 void cam0Callback(const sensor_msgs::ImageConstPtr& msg) {
+    std::lock_guard lock(mtx0);
     if (msg->height == 0 || msg->width == 0) {
         LOG(ERROR) << "Image size is 0!";
         return;
     }
-    std::lock_guard lock(mtx0);
     image_queue0.push(msg);
     cond_var0.notify_one();
 }
 
 void cam1Callback(const sensor_msgs::ImageConstPtr& msg) {
+    std::lock_guard lock(mtx1);
     if (msg->height == 0 || msg->width == 0) {
         LOG(ERROR) << "Image size is 0!";
         return;
     }
-    std::lock_guard lock(mtx1);
     image_queue1.push(msg);
     cond_var1.notify_one();
 }
@@ -222,11 +224,27 @@ bool RosMsg::getImageSync(FrameData& data)
     SAIGA_ASSERT(data.image.rows == 0);
     if (image_queue0.empty() || (use_stereo_ && image_queue1.empty())) {
         std::unique_lock lock0(mtx0);
+        if (image_queue0.size() > kImgQueueSizeThreshold)
+        {
+            LOG(WARNING) << "Clear image_queue0 since image_queue0.size() > " << kImgQueueSizeThreshold;
+            while (!image_queue0.empty())
+            {
+                image_queue0.pop();
+            }
+        }
         cond_var0.wait(lock0, []{ return !image_queue0.empty(); });
         lock0.unlock();  // Don't forget to unlock so image_queue0 can continue being filled!
         if (use_stereo_)
         {
             std::unique_lock lock1(mtx1);
+            if (image_queue1.size() > kImgQueueSizeThreshold)
+            {
+                LOG(WARNING) << "Clear image_queue1 since image_queue1.size() > " << kImgQueueSizeThreshold;
+                while (!image_queue1.empty())
+                {
+                    image_queue1.pop();
+                }
+            }
             cond_var1.wait(lock1, []
             {
                 if (image_queue1.empty())
