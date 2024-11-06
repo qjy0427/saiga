@@ -14,7 +14,7 @@
 namespace Saiga
 {
 
-constexpr int kImgQueueSizeThreshold = 0;
+constexpr int kImgQueueSizeThreshold = 1;
 
 std::queue<sensor_msgs::ImageConstPtr> image_queue0;
 std::queue<sensor_msgs::ImageConstPtr> image_queue1;
@@ -167,8 +167,7 @@ std::vector<Imu::Data> RosMsg::GetImuSample(const double curr_time)
     std::cout << std::setprecision(10);
     if (last_time < curr_time - 1)
     {
-        last_time = curr_time - 1;
-        std::cout << "Too large time gap detected, last_time: " << last_time << std::endl;
+        LOG(INFO) << "Too large time gap detected, last_time: " << last_time << " , curr_time: " << curr_time;
     }
     std::vector<Imu::Data> vec_imu_data;
     while (vec_imu_data.size() < 2 || vec_imu_data.back().timestamp < curr_time) {
@@ -209,27 +208,36 @@ bool RosMsg::getImageSync(FrameData& data)
     image0 = image_queue0.front();
     image_queue0.pop();
     lock0.unlock();  // Don't forget to unlock so image_queue0 can continue being filled!
+    const double img0_time = image0->header.stamp.toSec();
     if (use_stereo_)
     {
         std::unique_lock lock1(mtx1);
-        cond_var1.wait(lock1, []
+        cond_var1.wait(lock1, [img0_time]
         {
+            while (!image_queue1.empty() && img0_time > image_queue1.front()->header.stamp.toSec())
+            {
+                image_queue1.pop();
+            }
             return !image_queue1.empty();
         });
         image1 = image_queue1.front();
         image_queue1.pop();
     }
 
-    const double img0_time = image0->header.stamp.toSec();
     if (use_stereo_)
     {
         const double img1_time = image1->header.stamp.toSec();
-        if (fabs(img0_time - img1_time) < 1e-9) {
+        if (fabs(img0_time - img1_time) < 2e-3) {
             data.image.load(image0);
             data.right_image.load(image1);
             data.timeStamp = img0_time;
         } else
         {
+            if (img0_time < img1_time && !image_queue0.empty())
+            {
+                std::lock_guard lock0_again(mtx0);
+                image_queue0.pop();
+            }
             return false;
         }
     } else
