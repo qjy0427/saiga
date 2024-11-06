@@ -70,6 +70,35 @@ struct Associations
     double timestamp;
 };
 
+std::vector<double> getTimestamps(const std::vector<Imu::Data>& imu_data) {
+    std::vector<double> timestamps;
+    for (const auto& data : imu_data) {
+        timestamps.push_back(data.timestamp);
+    }
+    return timestamps;
+}
+
+double findNearestElement(const std::vector<double>& sorted_vec, double target) {
+    if (sorted_vec.empty()) {
+        LOG(ERROR) << "sorted_vec is empty!";
+        return target;
+    }
+    auto lower = std::lower_bound(
+        sorted_vec.begin(), sorted_vec.end(), target);
+
+    if (lower == sorted_vec.end()) {
+        return sorted_vec.back();
+    }
+    if (lower == sorted_vec.begin()) {
+        return *lower;
+    }
+
+    auto prev = lower - 1;
+    if (std::abs(*prev - target) <= std::abs(*lower - target)) {
+        return *prev;
+    }
+    return *lower;
+}
 
 EuRoCDataset::EuRoCDataset(const DatasetParameters& _params, Sequence sequence, bool should_load, CameraInputType camera_type)
     : DatasetCameraBase(_params), sequence(sequence)

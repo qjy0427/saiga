@@ -27,6 +27,11 @@ namespace Saiga
 // The sequence parameter is used to add time offsets to the ground truth data.
 // If set to unknown, we try to extract the sequence from the file name.
 //
+
+std::vector<double> getTimestamps(const std::vector<Imu::Data>& imu_data);
+
+double findNearestElement(const std::vector<double>& sorted_vec, double target);
+
 class SAIGA_VISION_API EuRoCDataset : public DatasetCameraBase
 {
    public:
