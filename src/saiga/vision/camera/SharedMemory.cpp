@@ -55,10 +55,9 @@ std::vector<Imu::Data> SharedMemory::GetImuSample(const double curr_time)
     AttFrame imu_datas[1024];
     // Increase std::cout precision
     std::cout << std::setprecision(10);
-    if (last_time < curr_time - 0.1)
+    if (last_time < curr_time - 1)
     {
-        last_time = curr_time - 0.1;
-        std::cout << "Too large time gap detected, last_time: " << last_time << std::endl;
+        std::cout << "Too large time gap detected, last_time: " << last_time << " , curr_time: " << curr_time << std::endl;
     }
     int tried = 0;
     while (tried++ < 50) {
@@ -117,26 +116,21 @@ bool SharedMemory::getImageSync(FrameData& data)
     std::vector<Imu::Data> imu_data = GetImuSample(data.timeStamp);
     std::cout << "imu data size: " << imu_data.size() << std::endl;
 
+    if (!imu_data.empty()) {
+        data.timeStamp = findNearestElement(getTimestamps(imu_data), data.timeStamp);
+    }
+
 
     // Add last 2 samples at the front
-    if (last_imu_data.size() >= 2)
+    if (last_imu_data.size() >= 2 && last_imu_data[last_imu_data.size() - 1].timestamp >= last_time)
     {
         imu_data.insert(imu_data.begin(), last_imu_data.end() - 2, last_imu_data.end());
-        data.imu_data.data       = imu_data;
-        data.imu_data.time_begin = last_time;
-        data.imu_data.time_end   = data.timeStamp;
-
-        data.imu_data.FixBorder();
-        SAIGA_ASSERT(data.imu_data.Valid());
-
-        // std::cout << "data.empty(): " << data.imu_data.data.empty() << std::endl;
-        // std::cout << "data.imu_data.time_begin: " << data.imu_data.time_begin << std::endl;
-        // std::cout << "data.imu_data.data.front().timestamp: " << data.imu_data.data.front().timestamp << std::endl;
-        // std::cout << "data.imu_data.time_end: " << data.imu_data.time_end << std::endl;
-        // std::cout << "data.imu_data.data.back().timestamp: " << data.imu_data.data.back().timestamp << std::endl;
-
-        // SAIGA_ASSERT(data.imu_data.complete());
     }
+    data.imu_data.data       = imu_data;
+    data.imu_data.time_begin = last_time;
+    data.imu_data.time_end   = data.timeStamp;
+    data.imu_data.FixBorder();
+    SAIGA_ASSERT(data.imu_data.Valid());
 
     last_imu_data = imu_data;
     last_time     = data.timeStamp;
