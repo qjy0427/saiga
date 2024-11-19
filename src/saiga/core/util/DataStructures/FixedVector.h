@@ -17,6 +17,9 @@ namespace Saiga
 template <typename T, size_t Alignment = 64>
 class FixedVectorHeap
 {
+    template<class Archive, typename _Scalar, size_t _Alignment>
+    friend void serialize(Archive & ar, FixedVectorHeap<_Scalar, _Alignment> & fvh, uint version);
+
    public:
     FixedVectorHeap(size_t capacity) : _capacity(capacity)
     {
