@@ -39,7 +39,7 @@ using VelocityAndBias = VelocityAndBiasBase<double>;
 struct Gravity
 {
     // This is constant
-    Vec3 unit_gravity = Vec3(0, 0, -9.81);
+    Vec3 unit_gravity = Vec3(0, 0, -9.7887);
 
     // The rotation is optimized to ensure |g| = 9.81
     SO3 R;
