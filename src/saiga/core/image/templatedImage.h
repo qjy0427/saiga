@@ -18,8 +18,6 @@ namespace Saiga
 template <typename T>
 class TemplatedImage : public Image
 {
-    template<class Archive, typename Scalar>
-    friend void serialize(Archive & ar, TemplatedImage<Scalar> & img, uint version);
    public:
     using TType    = ImageTypeTemplate<T>;
     using ViewType = ImageView<T>;

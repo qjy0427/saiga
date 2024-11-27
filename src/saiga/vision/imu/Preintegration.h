@@ -94,9 +94,6 @@ struct SAIGA_VISION_API Preintegration
     // Linear bias, which is subtracted from the meassurements.
     // Private because changing the bias invalidates the preintegration.
     Vec3 bias_gyro_lin, bias_accel_lin;
-
-    template<class Archive>
-    friend void serialize(Archive & ar, Preintegration & p, uint version);
 };
 
 
